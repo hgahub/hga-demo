@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Todos</title>
+  <style>
+    body { font-family: system-ui, sans-serif; max-width: 32rem; margin: 2rem auto; padding: 0 1rem; }
+    form { display: flex; gap: .5rem; margin-bottom: 1rem; }
+    input[type=text] { flex: 1; padding: .4rem; }
+    nav button[aria-pressed=true] { font-weight: bold; }
+    li { display: flex; gap: .5rem; align-items: center; padding: .2rem 0; }
+    li.done span { text-decoration: line-through; color: #777; }
+    li button { margin-left: auto; }
+    #toast { position: fixed; bottom: 1rem; left: 50%; transform: translateX(-50%); background: #333; color: #fff;
+             padding: .4rem .8rem; border-radius: .3rem; display: none; }
+  </style>
+</head>
+<body>
+  <h1 id="title">Todos</h1>
+  <form id="add">
+    <input id="new-title" type="text" placeholder="What needs doing?" autocomplete="off">
+    <button type="submit">Add</button>
+  </form>
+  <nav>
+    <button data-status="all" aria-pressed="true">All</button>
+    <button data-status="open" aria-pressed="false">Open</button>
+    <button data-status="done" aria-pressed="false">Done</button>
+  </nav>
+  <ul id="list"></ul>
+  <div id="toast" role="status"></div>
+  <script>
+    // App state, readable from the console or a test: window.state
+    const state = (window.state = { status: 'all', todos: [] })
+
+    function toast(text) {
+      const el = document.getElementById('toast')
+      el.textContent = text
+      el.style.display = 'block'
+      setTimeout(() => { el.style.display = 'none' }, 2500)
+    }
+
+    async function load() {
+      const res = await fetch(`/api/todos?status=${state.status}`)
+      state.todos = await res.json()
+      render()
+    }
+
+    function render() {
+      const list = document.getElementById('list')
+      list.replaceChildren(...state.todos.map(t => {
+        const li = document.createElement('li')
+        li.className = t.done ? 'done' : ''
+        li.dataset.id = t.id
+        const box = document.createElement('input')
+        box.type = 'checkbox'
+        box.checked = t.done
+        box.addEventListener('change', async () => {
+          await fetch(`/api/todos/${t.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ done: box.checked }) })
+          load()
+        })
+        const span = document.createElement('span')
+        span.textContent = t.title
+        const del = document.createElement('button')
+        del.textContent = 'Delete'
+        del.addEventListener('click', async () => {
+          await fetch(`/api/todos/${t.id}`, { method: 'DELETE' })
+          toast('Deleted')
+          load()
+        })
+        li.append(box, span, del)
+        return li
+      }))
+    }
+
+    document.getElementById('add').addEventListener('submit', async e => {
+      e.preventDefault()
+      const input = document.getElementById('new-title')
+      const res = await fetch('/api/todos', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ title: input.value }) })
+      if (!res.ok) { toast((await res.json()).detail); return }
+      input.value = ''
+      toast('Added')
+      load()
+    })
+
+    document.querySelectorAll('nav button').forEach(b => b.addEventListener('click', () => {
+      state.status = b.dataset.status
+      document.querySelectorAll('nav button').forEach(x => x.setAttribute('aria-pressed', String(x === b)))
+      load()
+    }))
+
+    fetch('/api/config').then(r => r.json()).then(c => {
+      document.getElementById('title').textContent = c.title
+      document.title = c.title
+    })
+    load()
+  </script>
+</body>
+</html>
