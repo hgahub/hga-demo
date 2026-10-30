@@ -47,6 +47,14 @@ def reset() -> None:
 reset()
 
 
+def clean_title(title: str) -> str:
+    """The title without surrounding whitespace; 422 if nothing is left."""
+    title = title.strip()
+    if not title:
+        raise HTTPException(422, "title must not be empty")
+    return title
+
+
 @app.get("/")
 def index() -> FileResponse:
     return FileResponse(STATIC / "index.html")
@@ -71,9 +79,8 @@ def list_todos(status: str = "all") -> list[Todo]:
 
 @app.post("/api/todos", status_code=201)
 def create_todo(body: TodoIn) -> Todo:
-    if body.title == "":
-        raise HTTPException(422, "title must not be empty")
-    t = Todo(id=next(_ids), title=body.title)
+    title = clean_title(body.title)
+    t = Todo(id=next(_ids), title=title)
     TODOS[t.id] = t
     return t
 
@@ -84,7 +91,7 @@ def update_todo(todo_id: int, body: TodoPatch) -> Todo:
     if t is None:
         raise HTTPException(404, "no such todo")
     if body.title is not None:
-        t.title = body.title
+        t.title = clean_title(body.title)
     if body.done is not None:
         t.done = body.done
     return t

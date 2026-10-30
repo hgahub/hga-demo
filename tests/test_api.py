@@ -38,3 +38,34 @@ def test_create_update_delete(client):
 
 def test_empty_title_is_rejected(client):
     assert client.post("/api/todos", json={"title": ""}).status_code == 422
+
+
+@pytest.mark.parametrize("title", ["   ", "\t\n", " "])
+def test_whitespace_title_is_rejected(client, title):
+    res = client.post("/api/todos", json={"title": title})
+    assert res.status_code == 422
+    assert res.json()["detail"] == "title must not be empty"
+    assert len(client.get("/api/todos").json()) == 3
+    assert client.post("/api/todos", json={"title": "Next"}).json()["id"] == 4
+
+
+def test_padded_title_is_trimmed(client):
+    res = client.post("/api/todos", json={"title": "  Buy bread  "})
+    assert res.status_code == 201
+    assert res.json()["title"] == "Buy bread"
+    assert client.get("/api/todos").json()[-1]["title"] == "Buy bread"
+
+
+@pytest.mark.parametrize("title", ["", "   "])
+def test_whitespace_title_patch_is_rejected(client, title):
+    res = client.patch("/api/todos/1", json={"title": title, "done": True})
+    assert res.status_code == 422
+    assert res.json()["detail"] == "title must not be empty"
+    assert client.get("/api/todos").json()[0] == {"id": 1, "title": "Buy milk", "done": False}
+
+
+def test_padded_title_patch_is_trimmed(client):
+    res = client.patch("/api/todos/1", json={"title": "  Buy bread  "})
+    assert res.status_code == 200
+    assert res.json()["title"] == "Buy bread"
+    assert client.get("/api/todos").json()[0]["title"] == "Buy bread"
