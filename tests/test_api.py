@@ -24,6 +24,12 @@ def test_list_open(client):
     assert all(not t["done"] for t in client.get("/api/todos?status=open").json())
 
 
+def test_list_done(client):
+    done = client.get("/api/todos?status=done").json()
+    assert [t["title"] for t in done] == ["Write the report"]
+    assert all(t["done"] for t in done)
+
+
 def test_unknown_status_is_rejected(client):
     assert client.get("/api/todos?status=later").status_code == 422
 

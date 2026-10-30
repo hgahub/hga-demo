@@ -73,7 +73,7 @@ def list_todos(status: str = "all") -> list[Todo]:
     if status == "open":
         return [t for t in todos if not t.done]
     if status == "done":
-        return [t for t in todos if not t.done]
+        return [t for t in todos if t.done]
     return todos
 
 
